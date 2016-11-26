@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script src="http://dimplejs.org/dist/dimple.v2.0.0.min.js"></script>
+
+    <style>
+      circle.dimple-series-1 {
+        fill: red;
+      }
+
+      p {
+        max-width: 850px;
+      }
+
+      div {
+        max-width: 850px;
+      }
+
+      h2 {
+        text-align: left;
+      }
+
+      .button {
+        text-align: center;
+      }
+
+      .button-title {
+        font-weight: bold;
+      }
+
+    </style>
+
+    <script type="text/javascript">
+
+
+    /*Let's create a scatter plot with Monthly Loan Payment by Loan
+    origination amount colored by Term*/
+    d3.csv("Prosper_ready2.csv", function (data) {
+
+
+      var margin = {top: 20, right: 10, bottom: 20, left: 10};
+
+      var width = 800 - margin.left - margin.right,
+          height = 400 - margin.top - margin.bottom;
+
+
+      var svg1 = dimple.newSvg("#scatter_term")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append('g')
+      .attr('class','chart');
+
+      var scatter_term = new dimple.chart(svg1, data);
+
+      scatter_term.defaultColors = [new dimple.color("#99d8c9"),
+                                    new dimple.color("#e5f5f9"),
+                                    new dimple.color("#2ca25f")];
+      var x = scatter_term.addMeasureAxis("x", "LoanOriginalAmount");
+      var y = scatter_term.addMeasureAxis("y", "MonthlyLoanPayment");
+
+      var s = scatter_term.addSeries(["LoanOriginalAmount","ListingKey","Term"],
+              dimple.plot.bubble,[x, y]);
+
+
+      /*Customize manually the tooltip to include only the relevant information:
+      Monthly Loan Amount, Loan Origination Amount and Term*/
+      s.getTooltipText = function (e) {
+              var rows = [];
+               return [
+                   "Term: " + e.aggField[2],
+                   "Loan Origination Amount: " + e.aggField[0],
+                   "Monthly Loan Payment: " + Math.round(e.y)
+               ];
+           };
+
+      /*axis label*/
+      x.title = "Loan Origination Amount (000s)";
+      y.title = "monthly Loan Payment (000s)";
+
+      /*Add Legends*/
+      var myLegend =  scatter_term.addLegend(65, 25, 670, 20, "right");
+
+      /*Order manually the legend labels*/
+      myLegend._getEntries = function() {
+                 var orderedValues = ["60","36","12"];
+                 var entries = [];
+                 orderedValues.forEach(function(v) {
+                     entries.push({
+                         key : v,
+                         fill : scatter_term.getColor(v).fill,
+                         stroke : scatter_term.getColor(v).stroke,
+                         opacity : scatter_term.getColor(v).opacity,
+                         series : s,
+                         aggField : [v]
+                     });
+                 }, this);
+                 return entries;
+             };
+
+      /*Add title*/
+      svg1.append("text")
+       .attr("x", scatter_term ._xPixels() + scatter_term ._widthPixels() / 2)
+       .attr("y", scatter_term ._yPixels() - 25)
+       .style("text-anchor", "middle")
+       .style("font-family", "sans-serif")
+       .style("font-weight", "bold")
+       .text("Monthly Loan Payment by Loan Origination Amount colored by Term")
+
+       /*Add comments in the graph*/
+       svg1.append("text")
+        .attr("x", scatter_term ._xPixels() + scatter_term ._widthPixels() - 600)
+        .attr("y", scatter_term ._yPixels() + 60)
+        .style("text-anchor", "left")
+        .style("font-family", "sans-serif")
+        .style("fill","#2ca25f")
+        .html("Monthly payments for some 36-month loans can be almost as low")
+
+        svg1.append("text")
+         .attr("x", scatter_term ._xPixels() + scatter_term ._widthPixels() - 600)
+         .attr("y", scatter_term ._yPixels() + 75)
+         .style("text-anchor", "left")
+         .style("font-family", "sans-serif")
+         .style("fill","#2ca25f")
+         .html("as monthly payments for some 60-month loans")
+
+
+      scatter_term.draw();
+
+      /*We want to make the legends interactive. When an item in the legends
+      is unchecked, it will remove the dots related to this item in this
+      scatter plot*/
+      scatter_term.legends = [];
+
+      /*Add the legend title*/
+      svg1.selectAll("title_text")
+          .data(["Click legend to show/hide Term:"])
+          .enter()
+          .append("text")
+            .attr("x", 420)
+            .attr("y", function (d, i) { return 32 + i * 14; })
+            .style("font-family", "sans-serif")
+            .style("font-size", "10px")
+            .style("color", "Black")
+            .text(function (d) { return d; });
+
+      //Make the lengend interactive
+      var filterValues = dimple.getUniqueValues(data, "Term");
+
+      myLegend.shapes.selectAll("rect")
+        // Add a click event to each rectangle
+        .on("click", function (e) {
+          // This indicates whether the item is already visible or not
+          var hide = false;
+          var newFilters = [];
+          // If the filters contain the clicked shape hide it
+          filterValues.forEach(function (f) {
+            if (f === e.aggField.slice(-1)[0]) {
+              hide = true;
+            } else {
+              newFilters.push(f);
+            }
+          });
+          // Hide the shape or show it
+          if (hide) {
+            d3.select(this).style("opacity", 0.2);
+          } else {
+            newFilters.push(e.aggField.slice(-1)[0]);
+            d3.select(this).style("opacity", 0.8);
+          }
+          // Update the filters
+          filterValues = newFilters;
+          // Filter the data
+          scatter_term.data = dimple.filterData(data, "Term", filterValues);
+          // Passing a duration parameter makes the chart animate. Without
+          // it there is no transition
+          scatter_term.draw(800);
+        });
+      });
+
+
+      /*Let's create a scatter plot with Monthly Loan Payment by Loan
+      origination amount colored by Prosper Score with 36-month loans with highest
+      credit score and 60-month loans with lowest credit score.
+      */
+      d3.csv("Prosper_36_60_lowest_highest.csv", function (data){
+
+
+        var svg2 = dimple.newSvg("#scatter_score", 800, 400);
+
+        //var data = dimple.filterData(data, "Term", "36");
+
+        var scatter_score = new dimple.chart(svg2, data);
+
+        //Set default colors
+        scatter_score.defaultColors = [
+                                      new dimple.color("#e31a1c"),
+                                      new dimple.color("#ffffb2")];
+
+        var x = scatter_score.addMeasureAxis("x", "LoanOriginalAmount");
+        var y = scatter_score.addMeasureAxis("y", "MonthlyLoanPayment");
+
+        //Limit x and y axis
+        x.overrideMax = 15000;
+        y.overrideMax = 580;
+
+        var s = scatter_score.addSeries(["LoanOriginalAmount","ListingKey",
+                "ProsperRisk"], dimple.plot.bubble,[x, y]);
+
+        /*Customize manually the tooltip to include only the relevant information:
+        Monthly Loan Amount, Loan Origination Amount and Prosper Risk*/
+        s.getTooltipText = function (e) {
+                var rows = [];
+                 return [
+                     "Prosper Score: " + e.aggField[2],
+                     "Loan Origination Amount: " + e.aggField[0],
+                     "Monthly Loan Payment: " + Math.round(e.y)
+                 ];
+             };
+
+        /*axis label*/
+        x.title = "Loan Origination Amount (000s)";
+        y.title = "monthly Loan Payment (000s)";
+
+        /*Add title*/
+        svg2.append("text")
+          .attr("x", scatter_score ._xPixels() + scatter_score ._widthPixels() / 2)
+          .attr("y", scatter_score ._yPixels() - 20)
+          .style("text-anchor", "middle")
+          .style("font-family", "sans-serif")
+          .style("font-weight", "bold")
+          .text("Lowest 36-month loans (with best scores) and highest 60-month loans (with worst scores)")
+
+        /*Add Legends*/
+        var myLegend_score =  scatter_score.addLegend(65, 28 , 690, 20, "right");
+
+        /*Order manually the legend labels*/
+        myLegend_score._getEntries = function() {
+                   var orderedValues2 = ["Score >= 9","1 <= Score <= 2"];
+                   var entries = [];
+                   orderedValues2.forEach(function(v) {
+                       entries.push({
+                           key : v,
+                           fill : scatter_score.getColor(v).fill,
+                           stroke : scatter_score.getColor(v).stroke,
+                           opacity : scatter_score.getColor(v).opacity,
+                           series : s,
+                           aggField : [v]
+                       });
+                   }, this);
+                   return entries;
+               };
+
+        scatter_score.draw();
+
+        });
+
+
+        /*Let's create a bar chart with Average Monthly Loan Payment by Loan
+        origination amount buckets by Prosper Score for 36-month loans*/
+        d3.csv("Prosper_avg_payment_amt6.csv", function (data) {
+
+          var svg4 = dimple.newSvg("#Prosper_avg_payment", 800, 400);
+
+          //var data = dimple.filterData(data, "Term", "12");
+
+          var avg_payment = new dimple.chart(svg4, data);
+
+          //Set default colors
+          avg_payment.defaultColors = [ new dimple.color("#fecc5c"),
+                                      new dimple.color("#fd8d3c"),
+                                      new dimple.color("#e31a1c"),
+                                      new dimple.color("#ffffb2")];
+
+
+          var x = avg_payment.addCategoryAxis("x", ["LoanOriginalAmount_bins","ProsperRisk"]);
+          var y = avg_payment.addMeasureAxis("y", "monthlypayment_mean");
+
+          //Order x axis
+          x.addOrderRule(["0K-4.9K","5K-9.9K","10K-14.9K","15K-19.9K",
+                                  "20K-24.9K","25K-29.9K","30K-35k"]);
+
+          //Order Prosper Score by Loan Origination Buckets
+          x.addGroupOrderRule(["1 <= Score <= 2","3 <= Score <= 5","6 <= Score <= 8","Score >= 9"]);
+
+          var s = avg_payment.addSeries("ProsperRisk", dimple.plot.bar,[x,y]);
+
+          /*axis label*/
+          x.title = "Loan Origination Amount Buckets (000s)";
+          y.title = "Average Monthly Loan Payment (000s)";
+
+          /*Add title*/
+          svg4.append("text")
+              .attr("x", avg_payment ._xPixels() + avg_payment._widthPixels() / 2)
+              .attr("y", avg_payment ._yPixels() - 20)
+              .style("text-anchor", "middle")
+              .style("font-family", "sans-serif")
+              .style("font-weight", "bold")
+              .text("Average Monthly Loan Payment by Loan Origination Amount colored by Prosper Score")
+
+          var myLegend_avg_payment= avg_payment.addLegend(65, 28 , 690, 20, "right");
+
+          //Order manually the legend labels
+          myLegend_avg_payment._getEntries = function() {
+                  var orderedValues2 = ["Score >= 9","6 <= Score <= 8",
+                                            "3 <= Score <= 5","1 <= Score <= 2"];
+                  var entries = [];
+                  orderedValues2.forEach(function(v) {
+                          entries.push({
+                          key : v,
+                          fill : avg_payment.getColor(v).fill,
+                          stroke : avg_payment.getColor(v).stroke,
+                          opacity : avg_payment.getColor(v).opacity,
+                          series : s,
+                          aggField : [v]
+                        });
+                  }, this);
+                      return entries;
+                  };
+
+
+          //Update tooltip
+          s.getTooltipText = function (e) {
+                  var rows = [];
+                  return ["Loan Origination Amount Bucket: " + e.x,
+                          "Prosper Score: " + e.aggField[0],
+                          "Average Monthly Loan Payment: " + Math.round(e.y)];
+                          };
+
+          //Set default graph with 12-month term (12-month was mapped to 1)
+          avg_payment.data = dimple.filterData(data, 'Term_num', '1');
+
+          avg_payment.draw();
+
+          //We want to make filter the graph by term using button
+          var buttonNames = ["Term12", "Term36", "Term60"]
+
+          d3.select("#button")
+              .selectAll("input")
+              .data(buttonNames)
+              .enter()
+              .append("input")
+              .attr("type","button")
+              .attr("class","button")
+              .attr("value", function (d){return d;} )
+              .attr("id", function (d){return d;})
+              .style("text-anchor", "middle")
+
+        //We want to make the legends interactive
+        avg_payment.legends = [];
+
+        /*Add the legend title*/
+        svg4.selectAll("title_text")
+              .data(["Click legend to show/hide Prosper Score:"])
+              .enter()
+              .append("text")
+              .attr("x", 100)
+              .attr("y", function (d, i) { return 32 + i * 14; })
+              .style("font-family", "sans-serif")
+              .style("font-size", "10px")
+              .style("color", "Black")
+              .text(function (d) { return d; });
+
+        // Get a unique list of Owner values to use when filtering
+        var filterValues = dimple.getUniqueValues(data, "ProsperRisk");
+        // Get all the rectangles from our now orphaned legend
+        myLegend_avg_payment.shapes.selectAll("rect")
+              // Add a click event to each rectangle
+             .on("click", function (e) {
+             // This indicates whether the item is already visible or not
+             var hide = false;
+             var newFilters = [];
+             // If the filters contain the clicked shape hide it
+             filterValues.forEach(function (f) {
+                if (f === e.aggField.slice(-1)[0]) {
+                  hide = true;
+                } else {
+                  newFilters.push(f);
+                  }
+                });
+                // Hide the shape or show it
+                if (hide) {
+                  d3.select(this).style("opacity", 0.2);
+                } else {
+                  newFilters.push(e.aggField.slice(-1)[0]);
+                  d3.select(this).style("opacity", 0.8);
+                }
+                // Update the filters
+                filterValues = newFilters;
+                // Filter the data
+
+                var termData = dimple.filterData(data, 'Term_num', termFilters);
+                avg_payment.data = dimple.filterData(termData, "ProsperRisk", filterValues);
+
+                avg_payment.draw(800);
+              });
+
+            // To Change Term, we need to get its location
+            var termValue = document.getElementById('Term_num');
+
+            // We want to display 12-month loans be default
+            termFilters = '1';
+
+            // We want to display 12-month loans when we click on 12-month button
+            d3.select("#Term12").on("click", function() {
+
+              termFilters = '1';
+              hide2 = true;
+
+              if (hide2) {
+                d3.select(this).style("opacity", 1);
+                d3.select("#Term36").style("opacity", 0.2);
+                d3.select("#Term60").style("opacity", 0.2);}
+
+              var termData = dimple.filterData(data, 'Term_num', termFilters );
+              avg_payment.data = dimple.filterData(termData, "ProsperRisk", filterValues);
+              avg_payment.draw(700);
+            });
+
+            // We want to display 36-month loans when we click on 36-month button
+            d3.select("#Term36").on("click", function() {
+
+              termFilters = '2';
+
+              hide2 = true;
+
+              if (hide2) {
+                d3.select(this).style("opacity", 1);
+                d3.select("#Term12").style("opacity", 0.2);
+                d3.select("#Term60").style("opacity", 0.2);}
+
+              var termData = dimple.filterData(data, 'Term_num', termFilters);
+              avg_payment.data = dimple.filterData(termData, "ProsperRisk", filterValues);
+
+              avg_payment.draw(700);
+            });
+
+            // We want to display 60-month loans when we click on 60-month button
+            d3.select("#Term60").on("click", function() {
+
+              termFilters = '3';
+
+              hide2 = true;
+
+              if (hide2) {
+                d3.select(this).style("opacity", 1);
+                d3.select("#Term12").style("opacity", 0.2);
+                d3.select("#Term36").style("opacity", 0.2);}
+
+              var termData = dimple.filterData(data, 'Term_num', termFilters);
+              avg_payment.data = dimple.filterData(termData, "ProsperRisk", filterValues);
+              avg_payment.draw(700);
+            });
+
+            //By default we only want to have the button 12-month hihlighted
+            d3.select("#Term36").style("opacity", 0.2);
+            d3.select("#Term60").style("opacity", 0.2);
+
+                  });
+
+    </script>
+  </head>
+
+<body>
+
+  <h1>Does the Prosper Score have an impact on Prosper Loans?</h1>
+
+  <p>
+    <a href="https://www.prosper.com/">Prosper</a> is part of the peer-to-peer
+    lending industry. In the following visuals we want to explore if a Prosper Score has an impact on the loan origination
+    amount and monthly loan payment. The following visuals are based on the loans issued by Prosper in 2013.
+  </p>
+
+  <h2>Term</h2>
+
+  <p>
+    The monthly loan payments should be calculated based on Loan Origination Amount and Term. Let's see if everything
+    is as expected.
+  </p>
+
+  <div id="scatter_term">
+  </div>
+
+  <p>
+    Prosper provides mostly 36 and 60-month loans. There is clearly a linear
+    relationship between the loan origination amount and the monthly payment for
+    each term. However it's very surprising that monthly payments for some 36-month loans can be as low as those for 60-month loans.
+  </p>
+
+  <h2>Prosper Score</h2>
+  <p>
+    Prosper uses a Prosper score that quantifies the loan risk based on credit
+    score, employment, salary etc. It would be interesting to see if it can explain why monthly payments for some 36-month loans can be as low
+    as monthly payments for some 60-month loans.
+    Let's create a scatter plot displaying the 36-month loans with the lowest monthly payments (and therefore, the best Prosper Scores: Score >= 9), and the 60-month loans
+    with the highest monthly payments (and therefore the worst Prosper Scores: 1 <= Score <= 2).
+  </p>
+
+  <div id="scatter_score"></div>
+  <p>
+    We observe that the Monthly Loan Payment for 36-month loans with the highest Prosper Score (Score >= 9) and 60-month
+    loans with with worst Prosper Score (1 <= Score <= 2) are very similar when they have aLoan Origination Amount below $15,000. One of the reasons is that Prosper increases the Monthly Loan Payment if they think there is a greater
+    chance that the borrower will default (which translates to a Low Prosper Score). On the other hand, Prosper will decrease the Monthly Loan
+    Payment if they think there is a smaller chance that the borrower will default (which translates to a High Prosper Score). So we can confirm
+    that the Prosper Score has an impact on the Monthly Loan Payment.
+  </p>
+
+  <p>
+    In order to present the impact of the Prosper Score on the Monthly Loan Payment, we have created a bar chart
+    with average monthly loan payment by Prosper Score and by Loan Origination Amount. In the following graph, you
+    can also select the different Terms to see data specific to each Term.
+  </p>
+
+  <p id=button-title><b>Select the Term:</b></p>
+  <div id="Prosper_avg_payment">
+    <div id="button"></div>
+  </div>
+
+  <p>If we select 12-month terms, we notice that Prosper doesn't provide loans with a Loan Origination Amount
+  greater than $25,000. Moreover if the Prosper Score is between 1 and 2, the Loan Origination Amount
+  can not be greater than $15,000. For every term, we observe that the greater the Prosper Score, the lower
+  the monthly payment for a loan with the same loan Origination Amount. However the impact of the Prosper Score tends to be
+  greater for loans with a Loan Origination Amount greater than $10,000. For a Loan Origination Amount less than $10,000, there
+  is almost no impact on the Monthly Loan Payment, except for 60-month loans.</p>
